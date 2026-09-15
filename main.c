@@ -379,6 +379,15 @@ static gboolean on_autostart_switch_state_set(GtkSwitch *widget, gboolean state,
 }
 
 /**
+ * Destroy notify callback matching GClosureNotify signature for freeing switch data.
+ */
+static void switch_data_destroy_notify(gpointer data, GClosure *closure)
+{
+    (void)closure;
+    g_free(data);
+}
+
+/**
  * Requirement 4: Settings Dialog
  * Lets user configure system autostart and clipboard retention,
  * persisting to ~/.config/appclip-manager/settings.conf and ~/.config/autostart/.
@@ -432,7 +441,7 @@ static void show_settings_dialog(GtkWindow *parent, UnifiedAppContext *uctx)
     switch_data->uctx = uctx;
     g_signal_connect_data(switch_autostart, "state-set",
                           G_CALLBACK(on_autostart_switch_state_set),
-                          switch_data, (GClosureNotify)g_free, 0);
+                          switch_data, switch_data_destroy_notify, 0);
 
     /* System tray / minimized explanation note */
     GtkWidget *lbl_autostart_note = gtk_label_new(

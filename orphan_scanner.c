@@ -10,6 +10,7 @@
 #define _XOPEN_SOURCE 700
 #include "orphan_scanner.h"
 #include "app_scanner.h"
+#include "db.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -604,7 +605,6 @@ static gpointer full_scan_worker_thread(gpointer data)
 
     /* Part 2: Cross-reference ~/.config and ~/.cache for directories that do not
      * correspond to any installed application */
-    const char *home = g_get_home_dir();
     const char *user_config = g_get_user_config_dir();
     const char *user_cache = g_get_user_cache_dir();
 

@@ -697,7 +697,7 @@ GtkWidget *ui_cleaner_create_panel(UiCleanerContext **out_ctx, GtkWindow *parent
 
     /* Progress Bar */
     ctx->progress_bar = GTK_PROGRESS_BAR(gtk_progress_bar_new());
-    gtk_progress_bar_pulse(GTK_PROGRESS_BAR(ctx->progress_bar));
+    gtk_progress_bar_pulse(ctx->progress_bar);
     gtk_widget_set_no_show_all(GTK_WIDGET(ctx->progress_bar), TRUE);
     gtk_box_pack_start(GTK_BOX(panel), GTK_WIDGET(ctx->progress_bar), FALSE, FALSE, 0);
 

@@ -26,8 +26,8 @@ struct _UiCleanerContext {
     GtkWindow *window;
     GtkWidget *panel;
     GtkListBox *list_box;
-    GtkWidget *spinner;
-    GtkWidget *progress_bar;
+    GtkSpinner *spinner;
+    GtkProgressBar *progress_bar;
     GtkWidget *statusbar_label;
     GtkWidget *btn_scan;
     GtkWidget *btn_select_safe;

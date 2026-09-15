@@ -1,13 +1,15 @@
 Package: appclip-manager
-Version: 1.0.0
+Version: 1.1.0
 Section: utils
 Priority: optional
 Architecture: amd64
-Depends: libgtk-3-0, libsqlite3-0, libappindicator3-1
+Depends: libgtk-3-0, libsqlite3-0, libappindicator3-1, libnotify4
 Maintainer: Jeyaul Hoque <contact@jeyaulhoque.pages.dev>
 Homepage: https://jeyaulhoque.pages.dev/
 Description: Manage installed apps and clipboard history on Ubuntu
  AppClip Manager lets you view and uninstall installed applications
- (APT, Snap, Flatpak) and keeps a searchable history of everything
- you copy to the clipboard, with the ability to save clips.
-
+ (APT, Snap, Flatpak), check for and install app updates, clean up
+ orphaned config/cache files after uninstalling, start automatically
+ on login, and keeps a searchable history of everything you copy to
+ the clipboard with a full text/image detail viewer, copy, and save
+ support.

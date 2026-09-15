@@ -428,11 +428,12 @@ static gboolean run_text_detail_dialog(GtkWindow *parent, int clip_id, ClipEntry
     ctx.is_modified = FALSE;
     ctx.db_was_updated = FALSE;
 
-    /* Build Dialog */
+    /* Build Dialog (first_button_text = NULL, followed by terminating sentinel NULL) */
     GtkWidget *dialog = gtk_dialog_new_with_buttons(
         "Clip Details - Text",
         parent,
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        NULL,
         NULL
     );
     ctx.dialog = GTK_DIALOG(dialog);
@@ -875,11 +876,12 @@ static gboolean run_image_detail_dialog(GtkWindow *parent, int clip_id, ClipEntr
     ctx.original_pixbuf = pixbuf;
     ctx.current_zoom = 1.0;
 
-    /* Build Dialog */
+    /* Build Dialog (first_button_text = NULL, followed by terminating sentinel NULL) */
     GtkWidget *dialog = gtk_dialog_new_with_buttons(
         "Clip Details - Image",
         parent,
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        NULL,
         NULL
     );
     ctx.dialog = GTK_DIALOG(dialog);
