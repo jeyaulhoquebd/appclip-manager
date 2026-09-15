@@ -1,6 +1,7 @@
 {
   "name": "AppClip Manager",
-  "description": "Linux desktop application in C using GTK3 and SQLite3 for managing installed applications and clipboard history with X11/Wayland support.",
+  "description": "Linux desktop application in C using GTK3 and SQLite3 for managing installed applications, clipboard history, app updates, and a System Cleaner for safe removal of leftover config and cache files.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
+

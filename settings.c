@@ -17,6 +17,13 @@
 #define KEY_MONITOR_TEXT "monitor_text"
 #define KEY_MONITOR_IMAGES "monitor_images"
 
+#define GROUP_UPDATES "Updates"
+#define KEY_AUTO_CHECK_HOURS "auto_check_updates_interval_hours"
+#define KEY_LAST_UPDATE_CHECK "last_update_check"
+
+#define GROUP_GENERAL "General"
+#define KEY_START_ON_BOOT "start_on_boot"
+
 void settings_get_defaults(AppSettings *settings)
 {
     if (!settings) return;
@@ -24,6 +31,9 @@ void settings_get_defaults(AppSettings *settings)
     settings->max_history_days = 30;
     settings->monitor_text = TRUE;
     settings->monitor_images = TRUE;
+    settings->auto_check_updates_interval_hours = 24;
+    settings->last_update_check = 0;
+    settings->start_on_boot = FALSE;
 }
 
 char *settings_get_file_path(void)
@@ -79,6 +89,18 @@ gboolean settings_load(AppSettings *settings)
         settings->monitor_images = g_key_file_get_boolean(kf, GROUP_CLIPBOARD, KEY_MONITOR_IMAGES, NULL);
     }
 
+    if (g_key_file_has_key(kf, GROUP_UPDATES, KEY_AUTO_CHECK_HOURS, NULL)) {
+        settings->auto_check_updates_interval_hours = g_key_file_get_integer(kf, GROUP_UPDATES, KEY_AUTO_CHECK_HOURS, NULL);
+    }
+
+    if (g_key_file_has_key(kf, GROUP_UPDATES, KEY_LAST_UPDATE_CHECK, NULL)) {
+        settings->last_update_check = (gint64)g_key_file_get_int64(kf, GROUP_UPDATES, KEY_LAST_UPDATE_CHECK, NULL);
+    }
+
+    if (g_key_file_has_key(kf, GROUP_GENERAL, KEY_START_ON_BOOT, NULL)) {
+        settings->start_on_boot = g_key_file_get_boolean(kf, GROUP_GENERAL, KEY_START_ON_BOOT, NULL);
+    }
+
     g_key_file_free(kf);
     g_free(file_path);
     return TRUE;
@@ -95,10 +117,15 @@ gboolean settings_save(const AppSettings *settings)
         " AppClip Manager Configuration File\n"
         " Created by: Jeyaul Hoque (https://jeyaulhoque.pages.dev/)\n", NULL);
 
+    g_key_file_set_boolean(kf, GROUP_GENERAL, KEY_START_ON_BOOT, settings->start_on_boot);
+
     g_key_file_set_integer(kf, GROUP_CLIPBOARD, KEY_MAX_ITEMS, settings->max_history_items);
     g_key_file_set_integer(kf, GROUP_CLIPBOARD, KEY_MAX_DAYS, settings->max_history_days);
     g_key_file_set_boolean(kf, GROUP_CLIPBOARD, KEY_MONITOR_TEXT, settings->monitor_text);
     g_key_file_set_boolean(kf, GROUP_CLIPBOARD, KEY_MONITOR_IMAGES, settings->monitor_images);
+
+    g_key_file_set_integer(kf, GROUP_UPDATES, KEY_AUTO_CHECK_HOURS, settings->auto_check_updates_interval_hours);
+    g_key_file_set_int64(kf, GROUP_UPDATES, KEY_LAST_UPDATE_CHECK, settings->last_update_check);
 
     GError *err = NULL;
     gboolean success = g_key_file_save_to_file(kf, file_path, &err);

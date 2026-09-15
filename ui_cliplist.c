@@ -7,6 +7,7 @@
  */
 
 #include "ui_cliplist.h"
+#include "ui_clip_detail.h"
 #include "db.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,35 @@
 /* Forward declarations */
 static void refresh_counts_label(UiClipContext *ctx);
 static GtkWidget *create_clip_row(UiClipContext *ctx, ClipEntry *entry);
+
+/**
+ * Row activation callback (Requirement 2 & 7):
+ * Triggered on single click or Enter key when a clip row is focused.
+ * Opens the full Clip Detail Viewer dialog.
+ */
+static void on_clip_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer user_data)
+{
+    (void)box;
+    UiClipContext *ctx = (UiClipContext *)user_data;
+    if (!ctx || !row) return;
+
+    /* If an action button (Copy, Save, Pin, Delete) was clicked, suppress row activation */
+    if (g_object_get_data(G_OBJECT(row), "action_button_clicked")) {
+        g_object_set_data(G_OBJECT(row), "action_button_clicked", NULL);
+        return;
+    }
+
+    ClipEntry *entry = (ClipEntry *)g_object_get_data(G_OBJECT(row), ROW_DATA_KEY);
+    if (!entry) return;
+
+    /* Open the full Detail Viewer dialog */
+    gboolean modified = show_clip_detail_dialog(ctx->parent_window, entry->id, entry->type);
+
+    /* If the clip text was edited and saved in the database, refresh the list view */
+    if (modified) {
+        ui_cliplist_reload(ctx);
+    }
+}
 
 static void trigger_toast(UiClipContext *ctx, const char *message)
 {
@@ -78,6 +108,7 @@ static void on_btn_copy_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *row = GTK_WIDGET(user_data);
+    g_object_set_data(G_OBJECT(row), "action_button_clicked", GINT_TO_POINTER(1));
     UiClipContext *ctx = (UiClipContext *)g_object_get_data(G_OBJECT(row), "ui_ctx");
     ClipEntry *entry = (ClipEntry *)g_object_get_data(G_OBJECT(row), ROW_DATA_KEY);
     if (!entry || !ctx) return;
@@ -117,6 +148,7 @@ static void on_btn_save_as_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *row = GTK_WIDGET(user_data);
+    g_object_set_data(G_OBJECT(row), "action_button_clicked", GINT_TO_POINTER(1));
     UiClipContext *ctx = (UiClipContext *)g_object_get_data(G_OBJECT(row), "ui_ctx");
     ClipEntry *entry = (ClipEntry *)g_object_get_data(G_OBJECT(row), ROW_DATA_KEY);
     if (!entry || !ctx) return;
@@ -176,6 +208,7 @@ static void on_btn_delete_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *row = GTK_WIDGET(user_data);
+    g_object_set_data(G_OBJECT(row), "action_button_clicked", GINT_TO_POINTER(1));
     UiClipContext *ctx = (UiClipContext *)g_object_get_data(G_OBJECT(row), "ui_ctx");
     ClipEntry *entry = (ClipEntry *)g_object_get_data(G_OBJECT(row), ROW_DATA_KEY);
     if (!entry || !ctx) return;
@@ -194,6 +227,7 @@ static void on_btn_delete_clicked(GtkButton *btn, gpointer user_data)
 static void on_btn_pin_toggled(GtkButton *btn, gpointer user_data)
 {
     GtkWidget *row = GTK_WIDGET(user_data);
+    g_object_set_data(G_OBJECT(row), "action_button_clicked", GINT_TO_POINTER(1));
     UiClipContext *ctx = (UiClipContext *)g_object_get_data(G_OBJECT(row), "ui_ctx");
     ClipEntry *entry = (ClipEntry *)g_object_get_data(G_OBJECT(row), ROW_DATA_KEY);
     if (!entry || !ctx) return;
@@ -230,7 +264,8 @@ static void on_btn_pin_toggled(GtkButton *btn, gpointer user_data)
 static GtkWidget *create_clip_row(UiClipContext *ctx, ClipEntry *entry)
 {
     GtkWidget *row = gtk_list_box_row_new();
-    gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), FALSE);
+    gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), TRUE);
+    gtk_widget_set_tooltip_text(row, "Click or press Enter to view full clip details");
 
     /* Store entry copy inside row */
     ClipEntry *entry_copy = clip_entry_new();
@@ -545,6 +580,7 @@ GtkWidget *ui_cliplist_create_panel(UiClipContext **out_ctx, GtkWindow *parent_w
     gtk_list_box_set_selection_mode(ctx->list_box, GTK_SELECTION_NONE);
     gtk_list_box_set_filter_func(ctx->list_box, clip_filter_func, ctx, NULL);
     gtk_list_box_set_sort_func(ctx->list_box, clip_sort_func, ctx, NULL);
+    g_signal_connect(ctx->list_box, "row-activated", G_CALLBACK(on_clip_row_activated), ctx);
 
     g_signal_connect_swapped(ctx->search_entry, "search-changed",
                              G_CALLBACK(gtk_list_box_invalidate_filter), ctx->list_box);

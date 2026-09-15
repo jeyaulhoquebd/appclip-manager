@@ -24,7 +24,9 @@ clip_sources = files(
   'clip_model.c',
   'clipboard_monitor.c',
   'ui_cliplist.c',
-  'settings.c'
+  'ui_clip_detail.c',
+  'settings.c',
+  'autostart.c'
 )
 
 app_sources = files(
@@ -34,9 +36,19 @@ app_sources = files(
   'ui_applist.c'
 )
 
+update_sources = files(
+  'update_checker.c',
+  'ui_updates.c'
+)
+
+cleaner_sources = files(
+  'orphan_scanner.c',
+  'ui_cleaner.c'
+)
+
 # 1. Primary Unified App
 executable('appclip-manager',
-  files('main.c') + app_sources + clip_sources,
+  files('main.c') + app_sources + clip_sources + update_sources + cleaner_sources,
   dependencies: common_deps,
   install: true
 )

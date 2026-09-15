@@ -104,4 +104,85 @@ char *db_get_last_content_hash(void);
  */
 int db_get_clip_counts(int *out_pinned_count);
 
+/**
+ * Retrieves the complete, untruncated content of a text clip by its ID.
+ * Caller must free returned string with g_free().
+ */
+char *db_get_clip_full_content(int clip_id);
+
+/**
+ * Retrieves the stored image file path of an image clip by its ID.
+ * Caller must free returned string with g_free().
+ */
+char *db_get_clip_file_path(int clip_id);
+
+/**
+ * Updates the content of a text clip by its ID, regenerates its preview column
+ * (first 100 characters), and updates its content hash.
+ * Returns TRUE on success, FALSE otherwise.
+ */
+gboolean db_update_clip_content(int clip_id, const char *new_content);
+
+/* -------------------------------------------------------------------------
+ * System Cleaner: Uninstalled Apps History Tracking
+ * ------------------------------------------------------------------------- */
+
+typedef struct {
+    gint64 id;
+    char *package_name;
+    char *display_name;
+    char *uninstalled_at;
+    int leftovers_cleaned;
+} UninstalledAppRecord;
+
+/**
+ * Allocates a new UninstalledAppRecord.
+ */
+UninstalledAppRecord *uninstalled_app_record_new(gint64 id,
+                                                const char *package_name,
+                                                const char *display_name,
+                                                const char *uninstalled_at,
+                                                int leftovers_cleaned);
+
+/**
+ * Frees an UninstalledAppRecord.
+ */
+void uninstalled_app_record_free(UninstalledAppRecord *rec);
+
+/**
+ * Frees a GList of UninstalledAppRecord pointers.
+ */
+void uninstalled_app_record_list_free(GList *list);
+
+/**
+ * Inserts a newly uninstalled application into the uninstalled_apps table.
+ * Returns the inserted row ID, or -1 on error.
+ */
+gint64 db_insert_uninstalled_app(const char *package_name, const char *display_name);
+
+/**
+ * Retrieves uninstalled apps whose leftover files haven't been fully cleaned (leftovers_cleaned = 0).
+ * Ordered by uninstalled_at DESC.
+ * Returns a GList of UninstalledAppRecord* (free with uninstalled_app_record_list_free).
+ */
+GList *db_get_uncleaned_uninstalled_apps(void);
+
+/**
+ * Retrieves all uninstalled app records for history listing.
+ * Returns a GList of UninstalledAppRecord* (free with uninstalled_app_record_list_free).
+ */
+GList *db_get_all_uninstalled_apps(void);
+
+/**
+ * Marks uninstalled application leftovers as cleaned (leftovers_cleaned = 1).
+ * Can be targeted by record id (if id > 0) or by package_name (if package_name != NULL).
+ * Returns TRUE on success.
+ */
+gboolean db_mark_uninstalled_app_cleaned(gint64 id, const char *package_name);
+
+/**
+ * Deletes an uninstalled application record from SQLite history.
+ */
+gboolean db_delete_uninstalled_app(gint64 id);
+
 #endif /* DB_H */

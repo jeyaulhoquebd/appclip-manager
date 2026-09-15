@@ -29,7 +29,9 @@ CLIP_SRCS = db.c \
             clip_model.c \
             clipboard_monitor.c \
             ui_cliplist.c \
-            settings.c
+            ui_clip_detail.c \
+            settings.c \
+            autostart.c
 
 # Common app manager sources
 APP_SRCS = app_model.c \
@@ -37,8 +39,16 @@ APP_SRCS = app_model.c \
            app_uninstaller.c \
            ui_applist.c
 
+# Common updates sources
+UPDATES_SRCS = update_checker.c \
+               ui_updates.c
+
+# Common system cleaner sources
+CLEANER_SRCS = orphan_scanner.c \
+               ui_cleaner.c
+
 # Unified app sources
-UNIFIED_SRCS = main.c $(APP_SRCS) $(CLIP_SRCS)
+UNIFIED_SRCS = main.c $(APP_SRCS) $(CLIP_SRCS) $(UPDATES_SRCS) $(CLEANER_SRCS)
 UNIFIED_OBJS = $(UNIFIED_SRCS:.c=.o)
 
 # Standalone clipboard sources

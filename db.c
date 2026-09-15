@@ -94,7 +94,18 @@ gboolean db_init(void)
         "  pinned INTEGER DEFAULT 0"
         ");"
         "CREATE INDEX IF NOT EXISTS idx_created_at ON clips(created_at DESC);"
-        "CREATE INDEX IF NOT EXISTS idx_pinned ON clips(pinned DESC);";
+        "CREATE INDEX IF NOT EXISTS idx_pinned ON clips(pinned DESC);"
+        ""
+        "/* System Cleaner: Uninstalled applications tracking */"
+        "CREATE TABLE IF NOT EXISTS uninstalled_apps ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  package_name TEXT NOT NULL,"
+        "  display_name TEXT,"
+        "  uninstalled_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+        "  leftovers_cleaned INTEGER DEFAULT 0"
+        ");"
+        "CREATE INDEX IF NOT EXISTS idx_uninstalled_pkg ON uninstalled_apps(package_name);"
+        "CREATE INDEX IF NOT EXISTS idx_uninstalled_cleaned ON uninstalled_apps(leftovers_cleaned);";
 
     char *err_msg = NULL;
     rc = sqlite3_exec(db_handle, schema_sql, NULL, NULL, &err_msg);
@@ -307,6 +318,87 @@ ClipEntry *db_get_clip_by_id(int id)
     return entry;
 }
 
+char *db_get_clip_full_content(int clip_id)
+{
+    if (!db_handle && !db_init()) return NULL;
+
+    const char *sql = "SELECT content FROM clips WHERE id = ?1 LIMIT 1;";
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db_handle, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        g_warning("db_get_clip_full_content prepare failed: %s", sqlite3_errmsg(db_handle));
+        return NULL;
+    }
+
+    sqlite3_bind_int(stmt, 1, clip_id);
+
+    char *content = NULL;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char *txt = (const char *)sqlite3_column_text(stmt, 0);
+        if (txt) {
+            content = g_strdup(txt);
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    return content;
+}
+
+char *db_get_clip_file_path(int clip_id)
+{
+    if (!db_handle && !db_init()) return NULL;
+
+    const char *sql = "SELECT file_path FROM clips WHERE id = ?1 LIMIT 1;";
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db_handle, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        g_warning("db_get_clip_file_path prepare failed: %s", sqlite3_errmsg(db_handle));
+        return NULL;
+    }
+
+    sqlite3_bind_int(stmt, 1, clip_id);
+
+    char *path = NULL;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char *txt = (const char *)sqlite3_column_text(stmt, 0);
+        if (txt) {
+            path = g_strdup(txt);
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    return path;
+}
+
+gboolean db_update_clip_content(int clip_id, const char *new_content)
+{
+    if (!db_handle && !db_init()) return FALSE;
+    if (!new_content) new_content = "";
+
+    char *preview = clip_generate_text_preview(new_content, 100);
+    char *new_hash = clip_compute_text_hash(new_content);
+
+    const char *sql = "UPDATE clips SET content = ?1, preview = ?2, content_hash = ?3 WHERE id = ?4;";
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db_handle, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        g_warning("db_update_clip_content prepare failed: %s", sqlite3_errmsg(db_handle));
+        g_free(preview);
+        g_free(new_hash);
+        return FALSE;
+    }
+
+    sqlite3_bind_text(stmt, 1, new_content, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, preview ? preview : "", -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, new_hash ? new_hash : "", -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 4, clip_id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    g_free(preview);
+    g_free(new_hash);
+
+    return (rc == SQLITE_DONE);
+}
+
 gboolean db_delete_clip(int id)
 {
     if (!db_handle && !db_init()) return FALSE;
@@ -509,3 +601,173 @@ int db_get_clip_counts(int *out_pinned_count)
     if (out_pinned_count) *out_pinned_count = pinned;
     return total;
 }
+
+/* =========================================================================
+ * System Cleaner: Uninstalled Apps Record Management
+ * ========================================================================= */
+
+UninstalledAppRecord *uninstalled_app_record_new(gint64 id,
+                                                const char *package_name,
+                                                const char *display_name,
+                                                const char *uninstalled_at,
+                                                int leftovers_cleaned)
+{
+    UninstalledAppRecord *rec = g_new0(UninstalledAppRecord, 1);
+    rec->id = id;
+    rec->package_name = g_strdup(package_name ? package_name : "");
+    rec->display_name = g_strdup(display_name && *display_name ? display_name : rec->package_name);
+    rec->uninstalled_at = g_strdup(uninstalled_at ? uninstalled_at : "");
+    rec->leftovers_cleaned = leftovers_cleaned;
+    return rec;
+}
+
+void uninstalled_app_record_free(UninstalledAppRecord *rec)
+{
+    if (!rec) return;
+    g_free(rec->package_name);
+    g_free(rec->display_name);
+    g_free(rec->uninstalled_at);
+    g_free(rec);
+}
+
+void uninstalled_app_record_list_free(GList *list)
+{
+    g_list_free_full(list, (GDestroyNotify)uninstalled_app_record_free);
+}
+
+gint64 db_insert_uninstalled_app(const char *package_name, const char *display_name)
+{
+    if (!package_name || *package_name == '\0') return -1;
+    if (!db_handle && !db_init()) return -1;
+
+    const char *sql =
+        "INSERT INTO uninstalled_apps (package_name, display_name, uninstalled_at, leftovers_cleaned) "
+        "VALUES (?1, ?2, CURRENT_TIMESTAMP, 0);";
+
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v2(db_handle, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        g_warning("Failed to prepare insert uninstalled app: %s", sqlite3_errmsg(db_handle));
+        return -1;
+    }
+
+    sqlite3_bind_text(stmt, 1, package_name, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, display_name && *display_name ? display_name : package_name, -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+        g_warning("Failed to execute insert uninstalled app: %s", sqlite3_errmsg(db_handle));
+        return -1;
+    }
+
+    return (gint64)sqlite3_last_insert_rowid(db_handle);
+}
+
+GList *db_get_uncleaned_uninstalled_apps(void)
+{
+    if (!db_handle && !db_init()) return NULL;
+
+    const char *sql =
+        "SELECT id, package_name, display_name, uninstalled_at, leftovers_cleaned "
+        "FROM uninstalled_apps WHERE leftovers_cleaned = 0 "
+        "ORDER BY uninstalled_at DESC;";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db_handle, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        g_warning("Failed to query uncleaned apps: %s", sqlite3_errmsg(db_handle));
+        return NULL;
+    }
+
+    GList *list = NULL;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        gint64 id = sqlite3_column_int64(stmt, 0);
+        const char *pkg = (const char *)sqlite3_column_text(stmt, 1);
+        const char *name = (const char *)sqlite3_column_text(stmt, 2);
+        const char *date = (const char *)sqlite3_column_text(stmt, 3);
+        int cleaned = sqlite3_column_int(stmt, 4);
+
+        UninstalledAppRecord *rec = uninstalled_app_record_new(id, pkg, name, date, cleaned);
+        list = g_list_append(list, rec);
+    }
+
+    sqlite3_finalize(stmt);
+    return list;
+}
+
+GList *db_get_all_uninstalled_apps(void)
+{
+    if (!db_handle && !db_init()) return NULL;
+
+    const char *sql =
+        "SELECT id, package_name, display_name, uninstalled_at, leftovers_cleaned "
+        "FROM uninstalled_apps ORDER BY uninstalled_at DESC;";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db_handle, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        g_warning("Failed to query all uninstalled apps: %s", sqlite3_errmsg(db_handle));
+        return NULL;
+    }
+
+    GList *list = NULL;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        gint64 id = sqlite3_column_int64(stmt, 0);
+        const char *pkg = (const char *)sqlite3_column_text(stmt, 1);
+        const char *name = (const char *)sqlite3_column_text(stmt, 2);
+        const char *date = (const char *)sqlite3_column_text(stmt, 3);
+        int cleaned = sqlite3_column_int(stmt, 4);
+
+        UninstalledAppRecord *rec = uninstalled_app_record_new(id, pkg, name, date, cleaned);
+        list = g_list_append(list, rec);
+    }
+
+    sqlite3_finalize(stmt);
+    return list;
+}
+
+gboolean db_mark_uninstalled_app_cleaned(gint64 id, const char *package_name)
+{
+    if (!db_handle && !db_init()) return FALSE;
+
+    char *sql = NULL;
+    if (id > 0) {
+        sql = sqlite3_mprintf("UPDATE uninstalled_apps SET leftovers_cleaned = 1 WHERE id = %lld;", (long long)id);
+    } else if (package_name && *package_name) {
+        sql = sqlite3_mprintf("UPDATE uninstalled_apps SET leftovers_cleaned = 1 WHERE package_name = %Q;", package_name);
+    } else {
+        return FALSE;
+    }
+
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(db_handle, sql, NULL, NULL, &err_msg);
+    sqlite3_free(sql);
+
+    if (rc != SQLITE_OK) {
+        g_warning("Failed to mark uninstalled app cleaned: %s", err_msg ? err_msg : "unknown");
+        sqlite3_free(err_msg);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+gboolean db_delete_uninstalled_app(gint64 id)
+{
+    if (id <= 0) return FALSE;
+    if (!db_handle && !db_init()) return FALSE;
+
+    char *sql = sqlite3_mprintf("DELETE FROM uninstalled_apps WHERE id = %lld;", (long long)id);
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(db_handle, sql, NULL, NULL, &err_msg);
+    sqlite3_free(sql);
+
+    if (rc != SQLITE_OK) {
+        g_warning("Failed to delete uninstalled app record: %s", err_msg ? err_msg : "unknown");
+        sqlite3_free(err_msg);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+

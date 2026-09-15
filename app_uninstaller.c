@@ -1,4 +1,5 @@
 #include "app_uninstaller.h"
+#include "db.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -192,6 +193,9 @@ static gpointer uninstall_worker_thread(gpointer data)
         job->success = TRUE;
         job->err_message = NULL;
         g_string_free(captured_output, TRUE);
+
+        /* Record uninstalled application in database for System Cleaner tracking */
+        db_insert_uninstalled_app(job->pkg_id, job->name);
     } else {
         job->success = FALSE;
         if (exit_code == 126 || exit_code == 127) {

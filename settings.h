@@ -16,6 +16,9 @@ typedef struct {
     int max_history_days;   /* Retention days for non-pinned entries (default 30) */
     gboolean monitor_text;  /* Whether to monitor text clips (default TRUE) */
     gboolean monitor_images;/* Whether to monitor image clips (default TRUE) */
+    int auto_check_updates_interval_hours; /* Auto check interval in hours (default 24, 0 = disabled) */
+    gint64 last_update_check;              /* Unix timestamp of last update check */
+    gboolean start_on_boot;                /* Whether to launch minimized on system startup (default FALSE) */
 } AppSettings;
 
 /**

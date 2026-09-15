@@ -25,7 +25,12 @@ import {
   Monitor,
   Filter,
   Plus,
-  Palette
+  Palette,
+  ArrowRight,
+  ArrowUpCircle,
+  Sparkles,
+  Settings as SettingsIcon,
+  Power
 } from 'lucide-react';
 import { sourceFiles, SourceFile } from './sourceCode';
 import { IconShowcase } from './components/IconShowcase';
@@ -56,6 +61,76 @@ interface ClipItem {
   pinned: boolean;
   timestamp: number; // unix timestamp
 }
+
+export interface UpdateItem {
+  id: string;
+  packageName: string;
+  displayName: string;
+  currentVersion: string;
+  newVersion: string;
+  iconName: string;
+  downloadSize: string;
+  type: 'APT' | 'Snap' | 'Flatpak';
+  description: string;
+}
+
+const INITIAL_UPDATES: UpdateItem[] = [
+  {
+    id: 'apt-firefox',
+    packageName: 'firefox',
+    displayName: 'Firefox Web Browser',
+    currentVersion: '128.0.3',
+    newVersion: '130.0.1',
+    iconName: 'firefox',
+    downloadSize: '68.4 MB',
+    type: 'APT',
+    description: 'Security & performance upgrades, improved tab navigation and CSS support'
+  },
+  {
+    id: 'snap-code',
+    packageName: 'code',
+    displayName: 'Visual Studio Code',
+    currentVersion: '1.92.2',
+    newVersion: '1.93.0',
+    iconName: 'vscode',
+    downloadSize: '112.5 MB',
+    type: 'Snap',
+    description: 'Python terminal debugger refresh, modern TypeScript 5.6 compatibility'
+  },
+  {
+    id: 'flatpak-vlc',
+    packageName: 'org.videolan.VLC',
+    displayName: 'VLC Media Player',
+    currentVersion: '3.0.20',
+    newVersion: '3.0.21',
+    iconName: 'vlc',
+    downloadSize: '34.2 MB',
+    type: 'Flatpak',
+    description: 'AV1 hardware decoder improvements, adaptive audio streaming sync'
+  },
+  {
+    id: 'apt-gimp',
+    packageName: 'gimp',
+    displayName: 'GNU Image Manipulation Program',
+    currentVersion: '2.10.36',
+    newVersion: '2.10.38',
+    iconName: 'gimp',
+    downloadSize: '24.1 MB',
+    type: 'APT',
+    description: 'Color profile precision updates, improved PSD and WebP image filters'
+  },
+  {
+    id: 'apt-git',
+    packageName: 'git',
+    displayName: 'Git Version Control',
+    currentVersion: '2.43.0',
+    newVersion: '2.43.2',
+    iconName: 'git',
+    downloadSize: '8.2 MB',
+    type: 'APT',
+    description: 'Fast-import stability enhancements, index packing performance fixes'
+  }
+];
 
 const INITIAL_APPS: AppItem[] = [
   {
@@ -197,8 +272,8 @@ const INITIAL_CLIPS: ClipItem[] = [
 ];
 
 export function App() {
-  /* Active Tab: 'apps' (Part 1) | 'clipboard' (Part 2) | 'source' | 'branding' */
-  const [activeTab, setActiveTab] = useState<'apps' | 'clipboard' | 'source' | 'branding'>('apps');
+  /* Active Tab: 'apps' (Part 1) | 'clipboard' (Part 2) | 'updates' (Part 3) | 'source' | 'branding' */
+  const [activeTab, setActiveTab] = useState<'apps' | 'clipboard' | 'updates' | 'source' | 'branding'>('apps');
 
   /* Apps State */
   const [apps, setApps] = useState<AppItem[]>(INITIAL_APPS);
@@ -217,12 +292,30 @@ export function App() {
   const [sessionType, setSessionType] = useState<'x11' | 'wayland'>('x11');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  /* Updates State (Part 3) */
+  const [updates, setUpdates] = useState<UpdateItem[]>(INITIAL_UPDATES);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [lastUpdateCheckTime, setLastUpdateCheckTime] = useState<number>(Date.now() - 1000 * 60 * 14); // 14 mins ago
+  const [updatingRowId, setUpdatingRowId] = useState<string | null>(null);
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  const [updateAllProgress, setUpdateAllProgress] = useState<{ current: number; total: number; currentPackage: string }>({
+    current: 0,
+    total: 0,
+    currentPackage: ''
+  });
+
   /* Source Code Viewer State */
   const [selectedFile, setSelectedFile] = useState<SourceFile>(sourceFiles[0]);
   const [copiedCode, setCopiedCode] = useState(false);
 
   /* About Dialog State */
   const [showAbout, setShowAbout] = useState(false);
+
+  /* Settings Dialog State */
+  const [showSettings, setShowSettings] = useState(false);
+  const [startOnBoot, setStartOnBoot] = useState(true);
+  const [maxHistoryItems, setMaxHistoryItems] = useState(500);
+  const [maxHistoryDays, setMaxHistoryDays] = useState(30);
 
   /* Toast State */
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -234,7 +327,71 @@ export function App() {
     }, 3000);
   };
 
-  /* Relative time formatter */
+  /* Updates actions */
+  const handleCheckUpdates = () => {
+    if (isCheckingUpdates || isUpdatingAll) return;
+    setIsCheckingUpdates(true);
+    showToast('Checking package repositories (APT, Snap, Flatpak)...');
+
+    setTimeout(() => {
+      setIsCheckingUpdates(false);
+      setLastUpdateCheckTime(Date.now());
+      if (updates.length === 0) {
+        setUpdates(INITIAL_UPDATES);
+        showToast(`Update check complete: ${INITIAL_UPDATES.length} updates found!`);
+      } else {
+        showToast(`Update check complete: ${updates.length} updates available.`);
+      }
+    }, 1400);
+  };
+
+  const handleSingleUpdate = (item: UpdateItem) => {
+    if (updatingRowId || isUpdatingAll) return;
+    setUpdatingRowId(item.id);
+    showToast(`Installing update for ${item.displayName}...`);
+
+    setTimeout(() => {
+      setUpdates((prev) => prev.filter((u) => u.id !== item.id));
+      setUpdatingRowId(null);
+      showToast(`✓ Successfully updated ${item.displayName} to v${item.newVersion}!`);
+    }, 1500);
+  };
+
+  const handleUpdateAll = () => {
+    if (updates.length === 0 || isUpdatingAll || isCheckingUpdates) return;
+    setIsUpdatingAll(true);
+    const total = updates.length;
+    let currentIdx = 0;
+
+    const runNextStep = () => {
+      if (currentIdx >= total || updates.length === 0) {
+        setIsUpdatingAll(false);
+        setUpdates([]);
+        showToast(`✓ All ${total} updates installed successfully! Your system is up to date.`);
+        return;
+      }
+
+      const currentItem = updates[0];
+      setUpdateAllProgress({
+        current: currentIdx + 1,
+        total,
+        currentPackage: `${currentItem.displayName} (${currentItem.type})`
+      });
+
+      setTimeout(() => {
+        setUpdates((prev) => prev.slice(1));
+        currentIdx++;
+        if (currentIdx < total) {
+          runNextStep();
+        } else {
+          setIsUpdatingAll(false);
+          showToast(`✓ All ${total} updates installed successfully! Your system is up to date.`);
+        }
+      }, 1300);
+    };
+
+    runNextStep();
+  };
   const formatTimeAgo = (ts: number) => {
     const diffSec = Math.floor((Date.now() - ts) / 1000);
     if (diffSec < 60) return 'Just now';
@@ -485,6 +642,18 @@ export function App() {
             </button>
           )}
 
+          {activeTab === 'updates' && (
+            <button
+              onClick={handleCheckUpdates}
+              disabled={isCheckingUpdates || isUpdatingAll}
+              className="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-md border border-slate-700 transition flex items-center gap-1.5"
+              title="Query APT, Snap, and Flatpak repositories for updates"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+              <span>{isCheckingUpdates ? 'Checking...' : 'Check Updates'}</span>
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('branding')}
             className={`px-3 py-1.5 text-xs font-medium rounded-md border transition flex items-center gap-1.5 ${
@@ -499,14 +668,23 @@ export function App() {
           </button>
 
           <a
-            href="/appclip-manager-v2.0.tar.gz"
+            href="/appclip-manager-v3.0.tar.gz"
             download
             className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-md transition flex items-center gap-1.5 shadow-sm"
-            title="Download compiled C source & build files"
+            title="Download compiled C source & build files with Update Checker"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Download C Tarball</span>
+            <span className="hidden sm:inline">Download C Tarball v3.0</span>
           </a>
+
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700 transition flex items-center gap-1.5"
+            title="Configure AppClip Manager Settings (Autostart & Retention)"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
 
           <button
             onClick={() => setShowAbout(true)}
@@ -548,6 +726,27 @@ export function App() {
           <span>Part 2: Clipboard History</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-900/50 text-blue-300 border border-blue-800">
             {clips.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('updates')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition ${
+            activeTab === 'updates'
+              ? 'border-blue-500 text-blue-400 bg-slate-900/60'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+          }`}
+        >
+          <ArrowUpCircle className="w-4 h-4 text-emerald-400" />
+          <span>Part 3: App Updates</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full border ${
+              updates.length > 0
+                ? 'bg-emerald-950 text-emerald-300 border-emerald-800 font-bold'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}
+          >
+            {updates.length > 0 ? updates.length : '✓'}
           </span>
         </button>
 
@@ -1029,6 +1228,220 @@ export function App() {
         )}
 
         {/* ========================================================================= */}
+        {/* TAB 3: APP UPDATE CHECKER (PART 3) */}
+        {/* ========================================================================= */}
+        {activeTab === 'updates' && (
+          <div className="flex flex-col gap-4">
+            {/* Updates Header Controls Bar */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+              {/* Left: Summary & Last Checked */}
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shrink-0">
+                  <ArrowUpCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">System Software Updates</span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        updates.length > 0
+                          ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
+                          : 'bg-slate-900 text-slate-400 border-slate-800'
+                      }`}
+                    >
+                      {updates.length > 0 ? `${updates.length} Available` : 'Up to Date'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Last checked: {formatTimeAgo(lastUpdateCheckTime)}</span>
+                    <span>•</span>
+                    <span className="text-slate-500">APT (pkexec), Snap, Flatpak</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Action Buttons */}
+              <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                <button
+                  onClick={handleCheckUpdates}
+                  disabled={isCheckingUpdates || isUpdatingAll}
+                  className="px-3.5 py-2 text-xs font-medium bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-2"
+                  title="Query APT repositories (via pkexec), Snap store, and Flatpak remotes"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingUpdates ? 'Checking repositories...' : 'Check for Updates'}</span>
+                </button>
+
+                <button
+                  onClick={handleUpdateAll}
+                  disabled={updates.length === 0 || isUpdatingAll || isCheckingUpdates}
+                  className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-lg transition shadow-sm flex items-center gap-2"
+                  title="Sequentially install all pending updates across APT, Snap, and Flatpak"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Update All {updates.length > 0 ? `(${updates.length})` : ''}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sequential Batch Update Progress Banner */}
+            {isUpdatingAll && (
+              <div className="bg-slate-950 border border-emerald-800/60 p-4 rounded-xl shadow-lg flex flex-col gap-2.5 animate-pulse">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating {updateAllProgress.current} of {updateAllProgress.total}: {updateAllProgress.currentPackage}</span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">
+                    {Math.round((updateAllProgress.current / updateAllProgress.total) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                  <div
+                    className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${(updateAllProgress.current / updateAllProgress.total) * 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* List of Updatable Packages (GTK3 GtkListBox representation) */}
+            <div className="bg-slate-950 rounded-xl border border-slate-800 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-4 py-3 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-300">Pending Application Updates</span>
+                  <span>({updates.length} items)</span>
+                </div>
+                <div className="flex items-center gap-6">
+                  <span className="hidden sm:inline">Version Transition</span>
+                  <span className="hidden md:inline">Download</span>
+                  <span>Action</span>
+                </div>
+              </div>
+
+              {updates.length === 0 ? (
+                /* Empty State: System up to date */
+                <div className="py-16 px-4 flex flex-col items-center justify-center text-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shadow-inner">
+                    <CheckCircle2 className="w-9 h-9" />
+                  </div>
+                  <div className="flex flex-col gap-1 max-w-md">
+                    <h3 className="text-base font-bold text-white">Your system is up to date!</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      All monitored applications and packages from APT, Snap, and Flatpak are running the latest versions.
+                    </p>
+                    <span className="text-[11px] text-slate-500 font-mono mt-1">
+                      Last checked {formatTimeAgo(lastUpdateCheckTime)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleCheckUpdates}
+                    disabled={isCheckingUpdates}
+                    className="mt-2 px-4 py-2 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+                    <span>Check Again</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
+                  {updates.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 hover:bg-slate-900/40 transition flex items-center justify-between gap-4 group"
+                    >
+                      {/* Left: Icon and Details */}
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 shadow-sm">
+                          {item.type === 'APT' && <Package className="w-5 h-5 text-blue-400" />}
+                          {item.type === 'Snap' && <Package className="w-5 h-5 text-orange-400" />}
+                          {item.type === 'Flatpak' && <Package className="w-5 h-5 text-emerald-400" />}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-sm font-bold text-white group-hover:text-blue-400 transition">
+                              {item.displayName}
+                            </span>
+
+                            {/* Packaging Source Badge */}
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                item.type === 'APT'
+                                  ? 'bg-blue-950 text-blue-300 border-blue-800'
+                                  : item.type === 'Snap'
+                                  ? 'bg-orange-950 text-orange-300 border-orange-800'
+                                  : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                              }`}
+                            >
+                              {item.type}
+                            </span>
+
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              ({item.packageName})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <span className="hidden sm:inline text-slate-400">{item.description}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Middle: Version diff & Download size */}
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-1.5 text-xs bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800 font-mono">
+                          <span className="text-slate-400">{item.currentVersion}</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="text-emerald-400 font-bold">{item.newVersion}</span>
+                        </div>
+
+                        <span className="text-xs text-slate-400 font-mono hidden md:inline w-18 text-right">
+                          {item.downloadSize}
+                        </span>
+
+                        {/* Right: Individual Update Button */}
+                        <button
+                          onClick={() => handleSingleUpdate(item)}
+                          disabled={updatingRowId === item.id || isUpdatingAll}
+                          className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition flex items-center gap-1.5 shadow-sm"
+                          title={`Update ${item.displayName} to version ${item.newVersion}`}
+                        >
+                          {updatingRowId === item.id ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <span>Updating...</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle className="w-3.5 h-3.5" />
+                              <span>Update</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Statusbar */}
+              <div className="px-4 py-2.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                <div className="flex items-center gap-3">
+                  <span>Backend: update_checker.c (fork() + execvp())</span>
+                  <span>•</span>
+                  <span>Thread Pool: g_thread_new() + g_idle_add()</span>
+                </div>
+                <span>Auto-check interval: 4 hours (configurable in settings)</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
         {/* TAB 3: C SOURCE CODE & ARCHITECTURE EXPLORER */}
         {/* ========================================================================= */}
         {activeTab === 'source' && (
@@ -1220,6 +1633,166 @@ export function App() {
         </div>
       )}
 
+      {/* GTK Settings Dialog Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5 relative">
+            <button
+              onClick={() => setShowSettings(false)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <SettingsIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">Settings — AppClip Manager</h2>
+                <p className="text-xs text-slate-400">Manage system startup behavior and clipboard storage limits</p>
+              </div>
+            </div>
+
+            {/* Section 1: System Integration (Start on Boot) */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <Power className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm font-semibold text-white">Start on Boot</span>
+                    <span className="text-[10px] bg-blue-950 text-blue-300 border border-blue-800 px-1.5 py-0.2 rounded font-mono">
+                      XDG Autostart
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    Start AppClip Manager on system startup
+                  </span>
+                </div>
+
+                {/* Custom Toggle Switch simulating GtkSwitch */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !startOnBoot;
+                    setStartOnBoot(next);
+                    if (next) {
+                      showToast('Autostart enabled: created ~/.config/autostart/appclip-manager.desktop');
+                    } else {
+                      showToast('Autostart disabled: removed desktop file from ~/.config/autostart/');
+                    }
+                  }}
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 border ${
+                    startOnBoot ? 'bg-blue-600 border-blue-500' : 'bg-slate-800 border-slate-700'
+                  }`}
+                  role="switch"
+                  aria-checked={startOnBoot}
+                >
+                  <span
+                    className={`block w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                      startOnBoot ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Autostart Preview / Subtitle Details */}
+              <div className="text-xs text-slate-400 bg-slate-950/70 border border-slate-800/80 rounded-lg p-3 flex flex-col gap-1.5 font-mono">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>File: ~/.config/autostart/appclip-manager.desktop</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-sans font-medium ${
+                    startOnBoot ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {startOnBoot ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+                {startOnBoot && (
+                  <div className="text-[11px] text-slate-300 whitespace-pre font-mono bg-slate-900 p-2 rounded border border-slate-800">
+{`[Desktop Entry]
+Type=Application
+Name=AppClip Manager
+Comment=Clipboard history monitor and app manager
+Exec=/usr/local/bin/appclip-manager --minimized
+Icon=appclip-manager
+Terminal=false
+X-GNOME-Autostart-enabled=true
+Hidden=false`}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Note: without a system tray, minimized mode runs invisibly in the background. Launch AppClip Manager again from the app menu to open the window.
+              </p>
+            </div>
+
+            {/* Section 2: Clipboard History Retention */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
+              <span className="text-sm font-semibold text-white">Clipboard History Retention</span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-slate-300 flex items-center justify-between">
+                    <span>Max history items:</span>
+                    <span className="font-mono text-blue-400 font-bold">{maxHistoryItems}</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={10000}
+                    step={50}
+                    value={maxHistoryItems}
+                    onChange={(e) => setMaxHistoryItems(Math.max(10, parseInt(e.target.value) || 10))}
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-slate-300 flex items-center justify-between">
+                    <span>Retention duration:</span>
+                    <span className="font-mono text-blue-400 font-bold">{maxHistoryDays} days</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    step={1}
+                    value={maxHistoryDays}
+                    onChange={(e) => setMaxHistoryDays(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-400">
+                Pinned clips are permanently protected from automatic maintenance pruning.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className="px-4 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettings(false);
+                  showToast('Settings saved to ~/.config/appclip-manager/settings.conf');
+                }}
+                className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition shadow-sm"
+              >
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* GTK About Dialog Modal */}
       {showAbout && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1249,11 +1822,13 @@ export function App() {
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed max-w-sm">
-              A native Linux desktop application featuring two core modules:
+              A native Linux desktop application featuring three core modules:
               <br />
               <strong>Part 1:</strong> Installed Applications Manager (APT, Snap, Flatpak, Desktop Entries).
               <br />
-              <strong>Part 2:</strong> Clipboard History Manager with SQLite3 persistence, image thumbnails, deduplication, and X11/Wayland support.
+              <strong>Part 2:</strong> Clipboard History Manager with SQLite3 persistence, image thumbnails, and X11/Wayland support.
+              <br />
+              <strong>Part 3:</strong> App Update Checker with background detection and sequential batch upgrades.
             </p>
 
             <div className="w-full p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-1.5 text-xs">

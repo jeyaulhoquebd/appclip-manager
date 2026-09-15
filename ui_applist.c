@@ -138,6 +138,36 @@ static void on_uninstall_completed_cb(gboolean success, const char *err_message,
         if (remaining_count == 0 && ctx->empty_state_box) {
             gtk_widget_show(ctx->empty_state_box);
         }
+
+        /* ---------------------------------------------------------------------
+         * Post-Uninstall System Cleaner Trigger (Requirement 3):
+         * Offer user the option: "Scan for leftover files? [Scan Now] [Skip]"
+         * --------------------------------------------------------------------- */
+        extern void appclip_show_cleaner_for_package(const char *package_name, const char *display_name);
+
+        GtkWidget *clean_dialog = gtk_message_dialog_new(
+            GTK_WINDOW(ctx->window),
+            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_QUESTION,
+            GTK_BUTTONS_NONE,
+            "Scan for leftover files?"
+        );
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(clean_dialog),
+            "Application '%s' has been uninstalled. Would you like to scan and remove any residual configuration, cache, and log files?",
+            app->name ? app->name : app->pkg_id
+        );
+        gtk_dialog_add_button(GTK_DIALOG(clean_dialog), "_Skip", GTK_RESPONSE_REJECT);
+        GtkWidget *btn_scan = gtk_dialog_add_button(GTK_DIALOG(clean_dialog), "_Scan Now", GTK_RESPONSE_ACCEPT);
+        GtkStyleContext *bstyle = gtk_widget_get_style_context(btn_scan);
+        gtk_style_context_add_class(bstyle, "suggested-action");
+
+        gint res = gtk_dialog_run(GTK_DIALOG(clean_dialog));
+        gtk_widget_destroy(clean_dialog);
+
+        if (res == GTK_RESPONSE_ACCEPT) {
+            appclip_show_cleaner_for_package(app->pkg_id, app->name);
+        }
     } else {
         /* Display captured stderr in an error dialog */
         GtkWidget *dialog = gtk_message_dialog_new(
