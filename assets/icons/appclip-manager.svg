@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient: Ubuntu Orange to Dark Aubergine -->
+    <linearGradient id="bg-ubuntu" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6A38"/>
+      <stop offset="40%" stop-color="#E95420"/>
+      <stop offset="100%" stop-color="#2C001E"/>
+    </linearGradient>
+
+    <!-- Metallic Clamp Gradient -->
+    <linearGradient id="clamp-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4A1538"/>
+      <stop offset="100%" stop-color="#220017"/>
+    </linearGradient>
+
+    <!-- Board Drop Shadow -->
+    <filter id="drop-shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.45"/>
+    </filter>
+
+    <!-- Squircle Shadow -->
+    <filter id="squircle-shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle Base with Drop Shadow -->
+  <rect x="36" y="36" width="440" height="440" rx="102" ry="102"
+        fill="url(#bg-ubuntu)" filter="url(#squircle-shadow)"/>
+
+  <!-- Subtle Top Highlight Rim -->
+  <rect x="38" y="38" width="436" height="436" rx="100" ry="100"
+        fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="2.5"/>
+
+  <!-- Installed Applications: 2x2 App Grid -->
+  <!-- Top-Left App Tile -->
+  <rect x="106" y="112" width="112" height="112" rx="24" ry="24"
+        fill="#FFFFFF" fill-opacity="0.92"/>
+  <!-- App glyph: Terminal prompt -->
+  <path d="M 138 152 L 158 168 L 138 184" fill="none" stroke="#E95420" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="166" y1="184" x2="186" y2="184" stroke="#E95420" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Top-Right App Tile -->
+  <rect x="238" y="112" width="112" height="112" rx="24" ry="24"
+        fill="#FFFFFF" fill-opacity="0.92"/>
+  <!-- App glyph: Package / Box icon -->
+  <path d="M 294 140 L 324 154 L 294 168 L 264 154 Z" fill="#77216F"/>
+  <path d="M 264 158 L 264 184 L 292 198 L 292 172 Z" fill="#5E1A57"/>
+  <path d="M 296 172 L 296 198 L 324 184 L 324 158 Z" fill="#77216F"/>
+
+  <!-- Bottom-Left App Tile -->
+  <rect x="106" y="244" width="112" height="112" rx="24" ry="24"
+        fill="#FFFFFF" fill-opacity="0.92"/>
+  <!-- App glyph: Gear / Settings -->
+  <circle cx="162" cy="300" r="14" fill="none" stroke="#2C001E" stroke-width="6"/>
+  <path d="M 162 278 L 162 284 M 162 316 L 162 322 M 140 300 L 146 300 M 178 300 L 184 300 M 147 285 L 151 289 M 173 311 L 177 315 M 147 315 L 151 311 M 173 289 L 177 285"
+        stroke="#2C001E" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Overlapping Clipboard (Clipboard History) -->
+  <!-- Clipboard Board with Drop Shadow -->
+  <g filter="url(#drop-shadow)">
+    <rect x="224" y="196" width="186" height="224" rx="22" ry="22"
+          fill="#FFFFFF" stroke="#F1F5F9" stroke-width="2"/>
+
+    <!-- Document Snippet Lines on Clipboard -->
+    <!-- Primary clipped line (highlighted in Ubuntu Orange) -->
+    <rect x="252" y="244" width="130" height="13" rx="6.5" ry="6.5" fill="#E95420"/>
+    <!-- Secondary clipped line -->
+    <rect x="252" y="272" width="114" height="11" rx="5.5" ry="5.5" fill="#64748B"/>
+    <!-- Tertiary clipped line -->
+    <rect x="252" y="298" width="124" height="11" rx="5.5" ry="5.5" fill="#94A3B8"/>
+    <!-- Fourth clipped line -->
+    <rect x="252" y="324" width="88" height="11" rx="5.5" ry="5.5" fill="#CBD5E1"/>
+
+    <!-- Copy badge indicator (Two overlapping miniature papers at bottom right) -->
+    <g transform="translate(336, 354)">
+      <!-- Back sheet -->
+      <rect x="4" y="0" width="26" height="32" rx="4" fill="#FED7AA" stroke="#E95420" stroke-width="2"/>
+      <!-- Front sheet -->
+      <rect x="0" y="6" width="26" height="32" rx="4" fill="#FFFFFF" stroke="#E95420" stroke-width="2"/>
+      <!-- Content lines on copy icon -->
+      <line x1="5" y1="13" x2="21" y2="13" stroke="#E95420" stroke-width="2" stroke-linecap="round"/>
+      <line x1="5" y1="19" x2="17" y2="19" stroke="#E95420" stroke-width="2" stroke-linecap="round"/>
+      <line x1="5" y1="25" x2="19" y2="25" stroke="#E95420" stroke-width="2" stroke-linecap="round"/>
+    </g>
+
+    <!-- Top Metallic Clipboard Clamp -->
+    <rect x="275" y="180" width="84" height="30" rx="8" ry="8" fill="url(#clamp-grad)"/>
+    <!-- Clamp clip handle -->
+    <rect x="295" y="168" width="44" height="22" rx="6" ry="6"
+          fill="none" stroke="#FFFFFF" stroke-width="3.5"/>
+    <circle cx="317" cy="195" r="4" fill="#E95420"/>
+  </g>
+</svg>

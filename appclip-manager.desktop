@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=AppClip Manager
+Comment=Manage apps and clipboard history
+Exec=appclip-manager
+Icon=appclip-manager
+Terminal=false
+Type=Application
+Categories=Utility;System;
